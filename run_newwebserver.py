@@ -1,35 +1,50 @@
 #!/usr/bin/env python3
 import boto3
+import os
+import sys
 import subprocess
 import time
 ec2 = boto3.resource('ec2')
 ec2Client = boto3.client('ec2')
 keyName = ''
 
-#TODO enclose in if statement to check how many arguments have been passed
-print('')
-print('Welcome! You\'re about to spin up your custom web server.')
-print('')
-ans = input('''Do you already have a key pair to use for the new EC2 instance?
-(If not, one will be generated for you)
-(y/n): ''')
-if ans[0] == 'y' or ans[0] == 'Y':
-    print('')
-    print('Great! First, make sure the your_key.pem file is in the current directory.')
-    print('')
-    ans = input('Please enter the file name without the .pem extension: ')
-    keyName = ans
+if len(sys.argv) > 1:
+    keyName = os.path.splitext(sys.argv[1])[0]
 else:
-    # The block below is taken from the assignment tips document
-    # create a file to store the key locally
-    outfile = open('assignment01-keypair.pem','w')
-    # call the boto ec2 function to create a key pair
-    key_pair = ec2.create_key_pair(KeyName='assignment01-keypair')
-    # capture the key and store it in a file
-    KeyPairOut = str(key_pair.key_material)
-    print(KeyPairOut)
-    outfile.write(KeyPairOut)
-    keyName = 'assignment01-keypair'
+    print('')
+    print('Welcome! You\'re about to spin up your custom web server.')
+    print('')
+    ans = input('''Do you already have a key pair to use for the new EC2 instance?
+    (If not, one will be generated for you)
+    (y/n): ''')
+    if ans[0] == 'y' or ans[0] == 'Y':
+        print('')
+        print('Great! First, make sure the your_key.pem file is in the current directory.')
+        print('')
+        ans = input('Please enter the file name without the .pem extension: ')
+        keyName = ans
+    else:
+        keyNameString = 'assignment01-keypair'
+        keyString = 'assignment01-keypair.pem'
+        print('')
+        print('Generating new key pair: \'' + keyNameString + '\'...')
+        # The block below is taken from the assignment tips document
+        # create a file to store the key locally
+        outfile = open(keyString,'w')
+        # call the boto ec2 function to create a key pair
+        while True:
+            try:
+                key_pair = ec2.create_key_pair(KeyName=keyString)
+                break
+            except Exception as error:
+                ec2Client.delete_key_pair(KeyName=keyString)
+        # capture the key and store it in a file
+        KeyPairOut = str(key_pair.key_material)
+        print('')
+        print('New key pair:')
+        print(KeyPairOut)
+        outfile.write(KeyPairOut)
+        keyName = 'assignment01-keypair'
 
 print(keyName)
 ans = input('Another question')
@@ -38,7 +53,7 @@ ans = input('Another question')
 instance = ec2.create_instances(
     ImageId='ami-099a8245f5daa82bf', #TODO update to retrieve dynamically
     InstanceType='t2.nano',
-    KeyName=keyName, #TODO update to take user input or create new key pair
+    KeyName=keyName,
     MinCount=1,
     MaxCount=1,
     SecurityGroupIds=['sg-04b2eda6495892f38'], #TODO update to create new security group
