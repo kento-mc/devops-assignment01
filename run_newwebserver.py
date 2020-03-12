@@ -6,6 +6,12 @@ import subprocess
 import time
 ec2 = boto3.resource('ec2')
 ec2Client = boto3.client('ec2')
+
+# Retreive most recent EC2 Amazon Linux 2 AMI
+amiCmd = "aws ec2 describe-images --owners amazon --filters 'Name=name,Values=amzn2-ami-hvm-2.0.????????.?-x86_64-gp2' 'Name=state,Values=available' --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' --output text"
+amiID = subprocess.getoutput(amiCmd)
+print('hello')
+print(amiID)
 keyName = ''
 
 if len(sys.argv) > 1:
@@ -72,18 +78,18 @@ while True:
         ec2Client.delete_security_group(GroupName=secGroupName)
 
 print(secGroupID)
-
+print(amiID)
 print(keyName)
 ans = input('Another question')
 
 # spin up new ec2 instance and configure web server
 instance = ec2.create_instances(
-    ImageId='ami-099a8245f5daa82bf', #TODO update to retrieve dynamically
+    ImageId=amiID,
     InstanceType='t2.nano',
     KeyName=keyName,
     MinCount=1,
     MaxCount=1,
-    SecurityGroupIds=['sg-04b2eda6495892f38'], #TODO update to create new security group
+    SecurityGroupIds=[secGroupID],
     TagSpecifications=[
         {
             'ResourceType': 'instance',
