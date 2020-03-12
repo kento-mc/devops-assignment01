@@ -46,6 +46,33 @@ else:
         outfile.write(KeyPairOut)
         keyName = 'assignment01-keypair'
 
+# Create new security group
+secGroupName = 'Assignment01SG'
+while True:
+    try:
+        securityGroup = ec2Client.create_security_group(
+            Description='Assignment 01 SG',
+            GroupName=secGroupName)
+        secGroupID = securityGroup['GroupId']
+        data = ec2Client.authorize_security_group_ingress(
+            GroupId=secGroupID,
+        IpPermissions=[
+            {'IpProtocol': 'tcp',
+             'FromPort': 80,
+             'ToPort': 80,
+             'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
+            {'IpProtocol': 'tcp',
+             'FromPort': 22,
+             'ToPort': 22,
+             'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
+        ])
+        print('Security group \'' + secGroupName + '\' has been created.')
+        break
+    except Exception as error:
+        ec2Client.delete_security_group(GroupName=secGroupName)
+
+print(secGroupID)
+
 print(keyName)
 ans = input('Another question')
 
