@@ -7,18 +7,23 @@ import time
 ec2 = boto3.resource('ec2')
 ec2Client = boto3.client('ec2')
 
+welcomeText = "Welcome! You're about to spin up your custom web server."
+
 # Retreive most recent EC2 Amazon Linux 2 AMI
 amiCmd = "aws ec2 describe-images --owners amazon --filters 'Name=name,Values=amzn2-ami-hvm-2.0.????????.?-x86_64-gp2' 'Name=state,Values=available' --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' --output text"
 amiID = subprocess.getoutput(amiCmd)
-print('hello')
-print(amiID)
+
 keyName = ''
 
-if len(sys.argv) > 1:
+if len(sys.argv) > 1: #TODO add possibility for second passed parameter of vpc id
+    print('')
+    print(welcomeText)
+    time.sleep(2)
     keyName = os.path.splitext(sys.argv[1])[0]
 else:
     print('')
-    print('Welcome! You\'re about to spin up your custom web server.')
+    print(welcomeText)
+    time.sleep(2)
     print('')
     ans = input('''Do you already have a key pair to use for the new EC2 instance?
     (If not, one will be generated for you)
@@ -56,7 +61,7 @@ else:
 def createSecGroup(nameSG):
     securityGroup = ec2Client.create_security_group(
         Description='Assignment 01 SG',
-        GroupName=secGroupName)
+        GroupName=nameSG)
     secGroupID = securityGroup['GroupId']
     data = ec2Client.authorize_security_group_ingress(
         GroupId=secGroupID,
@@ -70,13 +75,17 @@ def createSecGroup(nameSG):
          'ToPort': 22,
          'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
     ])
+    return secGroupID
+
 secGroupName = 'Assignment01SG'
+secGroupID = ''
 securityGroup = None
 print('')
 print('Creating new security group "' + secGroupName + '\"')
 while True:
     try:
-        createSecGroup(secGroupName)
+        secGroupID = createSecGroup(secGroupName)
+        print('')
         print('Security group \'' + secGroupName + '\' has been created.')
         break
     except Exception as error:
@@ -103,30 +112,43 @@ while True:
                         print('  1) delete the existing security group')
                         print('  2) create a new security group')
                         ans = input('===> ')
-                        if ans == 1:
+                        if ans == '1': #TODO create menu to delete instances rather than requiring user to do so in aws console
                             print('')
                             print('Please terminate any instances running in the security group "' + secGroupName + '.\"')
-                            ans = input('Once terminated, press any key to continue.')
-                            try:
-                                ec2Client.delete_security_group(GroupName=secGroupName)
-                                createSecGroup(secGroupName)
-                                break
-                            except Exception as error:
-                                print(error)
-                        elif ans == 2:
-                            print('')
-                            ans = input('Please give the new security group a name: ')
-                            createSecGroup(ans)
+                            while True:
+                                print('')
+                                ans = input('Once terminated, press any key to continue: ') #TODO use keystroke rather than requiring return
+                                try:
+                                    ec2Client.delete_security_group(GroupName=secGroupName)
+                                    secGroupID = createSecGroup(secGroupName)
+                                    break
+                                except Exception as error:
+                                    print('')
+                                    print('There was a problem. Check that all of the instances have been terminated.')
+                            break
+                        elif ans == '2':
+                            while True:
+                                print('')
+                                ans = input('Please give the new security group a unique name: ')
+                                groupMatchNum = ec2Client.describe_security_groups(Filters=[dict(Name='group-name', Values=[ans])])
+                                if len(groupMatchNum['SecurityGroups']) == 0:
+                                    secGroupID = createSecGroup(ans)
+                                    break
+                                else:
+                                    print('')
+                                    print('A security group with that name already exists!')
                             break
                         else:
                             print('')
                             print('Invalid input')
+                    break
                 else:
                     print('')
                     print('Invalid input')
             break
+    break
 
-ans = input('Another question: ')
+ans = input('Another question: ') # this is just to stop the script before it spins up an instance, for testing
 
 # spin up new ec2 instance and configure web server
 instance = ec2.create_instances(
