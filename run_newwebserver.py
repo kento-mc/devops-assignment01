@@ -53,34 +53,80 @@ else:
         keyName = 'assignment01-keypair'
 
 # Create new security group
+def createSecGroup(nameSG):
+    securityGroup = ec2Client.create_security_group(
+        Description='Assignment 01 SG',
+        GroupName=secGroupName)
+    secGroupID = securityGroup['GroupId']
+    data = ec2Client.authorize_security_group_ingress(
+        GroupId=secGroupID,
+    IpPermissions=[
+        {'IpProtocol': 'tcp',
+         'FromPort': 80,
+         'ToPort': 80,
+         'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
+        {'IpProtocol': 'tcp',
+         'FromPort': 22,
+         'ToPort': 22,
+         'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
+    ])
 secGroupName = 'Assignment01SG'
+securityGroup = None
+print('')
+print('Creating new security group "' + secGroupName + '\"')
 while True:
     try:
-        securityGroup = ec2Client.create_security_group(
-            Description='Assignment 01 SG',
-            GroupName=secGroupName)
-        secGroupID = securityGroup['GroupId']
-        data = ec2Client.authorize_security_group_ingress(
-            GroupId=secGroupID,
-        IpPermissions=[
-            {'IpProtocol': 'tcp',
-             'FromPort': 80,
-             'ToPort': 80,
-             'IpRanges': [{'CidrIp': '0.0.0.0/0'}]},
-            {'IpProtocol': 'tcp',
-             'FromPort': 22,
-             'ToPort': 22,
-             'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
-        ])
+        createSecGroup(secGroupName)
         print('Security group \'' + secGroupName + '\' has been created.')
         break
     except Exception as error:
-        ec2Client.delete_security_group(GroupName=secGroupName)
+        try:
+            ec2Client.delete_security_group(GroupName=secGroupName)
+        except Exception as error:
+            while True:
+                print('')
+                print('A security group with the name "' + secGroupName + '" already exists and has a running instance.')
+                print('Would you like to launch your new instance in this secrutiy group?')
+                ans = input('(y/n): ')
+                if ans[0] == 'y' or ans[0] == 'Y':
+                    securityGroup = ec2Client.describe_security_groups(
+                        Filters=[
+                            dict(Name='group-name', Values=[secGroupName])
+                        ]
+                    )
+                    secGroupID = securityGroup['SecurityGroups'][0]['GroupId']
+                    break
+                elif ans[0] == 'n' or ans[0] == 'N':
+                    while True:
+                        print('')
+                        print('To continue you will have to do one of the following:')
+                        print('  1) delete the existing security group')
+                        print('  2) create a new security group')
+                        ans = input('===> ')
+                        if ans == 1:
+                            print('')
+                            print('Please terminate any instances running in the security group "' + secGroupName + '.\"')
+                            ans = input('Once terminated, press any key to continue.')
+                            try:
+                                ec2Client.delete_security_group(GroupName=secGroupName)
+                                createSecGroup(secGroupName)
+                                break
+                            except Exception as error:
+                                print(error)
+                        elif ans == 2:
+                            print('')
+                            ans = input('Please give the new security group a name: ')
+                            createSecGroup(ans)
+                            break
+                        else:
+                            print('')
+                            print('Invalid input')
+                else:
+                    print('')
+                    print('Invalid input')
+            break
 
-print(secGroupID)
-print(amiID)
-print(keyName)
-ans = input('Another question')
+ans = input('Another question: ')
 
 # spin up new ec2 instance and configure web server
 instance = ec2.create_instances(
@@ -135,11 +181,11 @@ subprocess.run(['curl', '-O', 'http://devops.witdemo.net/image.jpg'])
 status = ec2Client.describe_instance_status()
 #print(status)
 s3 = boto3.resource("s3")
-bucket_name = 'wit2020-devops-kchadwick-w05-2020-02-27-1582823115'
+bucket_name = 'wit2020-devops-kchadwick-w05-2020-02-27-1582823115' #TODO create bucket dynamically
 object_name = 'image.jpg'
 region_name = boto3.session.Session().region_name # save region name to variable
 public_ip = instance[0].public_ip_address
-key_path = '~/dev/wit/devops/01/kchadwick_key.pem'
+key_path = './' + keyName + '.pem'
 
 try:
     # add ACL='public-read' to put arguments to allow public access to image
