@@ -118,7 +118,7 @@ while True:
                             print('Please terminate any instances running in the security group "' + secGroupName + '.\"')
                             while True:
                                 print('')
-                                ans = input('Once terminated, press any key to continue: ') #TODO use keystroke rather than requiring return
+                                ans = input('Once terminated, press Enter to continue: ')
                                 try:
                                     ec2Client.delete_security_group(GroupName=secGroupName)
                                     secGroupID = createSecGroup(secGroupName)
@@ -206,56 +206,51 @@ region_name = boto3.session.Session().region_name # save region name to variable
 public_ip = instance[0].public_ip_address
 key_path = './' + keyName + '.pem'
 
-errorLoop = False
 while True:
-    if errorLoop == False:
+    print('')
+    print('To deploy assets to the server, you must specify an S3 bucket.')
+    print('  1) create a new S3 bucket')
+    print('  2) enter the name of an existing S3 bucket')
+    ans = input('===> ')
+    if ans == '1':
+        bucket_name = 'wit2020-devops-kchadwick-assignment01-' + now # save bucket name string to variable
+        bucket = s3.create_bucket( # create S3 bucket
+            ACL='public-read',
+            Bucket=bucket_name,
+            CreateBucketConfiguration={
+                'LocationConstraint': region_name
+            }
+        )
         print('')
-        print('To deploy assets to the server, you must specify an S3 bucket.')
-        print('  1) create a new S3 bucket')
-        print('  2) enter the name of an existing S3 bucket')
-        ans = input('===> ')
-        if ans == '1':
-            bucket_name = 'wit2020-devops-kchadwick-assignment01-' + now # save bucket name string to variable
+        print('New bucket created: ' + bucket_name)
+        break
+    elif ans == '2':
+        try:
             print('')
-            print('New bucket created: ' + bucket_name)
+            ans = input('Enter the bucket name: ')
+            bucket_name = ans
+            bucket = s3.create_bucket( # test existence of bucket by trying to create one of same name. Exception is thrown and handled.
+                ACL='public-read',
+                Bucket=bucket_name,
+                CreateBucketConfiguration={
+                    'LocationConstraint': region_name
+                }
+            )
+            print('')
+            print('Bucket selected: ' + bucket_name)
             break
-        elif ans == '2':
-            try:
-                print('')
-                ans = input('Enter the bucket name: ')
+        except Exception as error:
+            if str(error.response['Error']['Code']) == 'BucketAlreadyOwnedByYou': # expected exception type to handle existing bucket
                 bucket_name = ans
-                bucket = s3.create_bucket(
-                    ACL='public-read',
-                    Bucket=bucket_name,
-                    CreateBucketConfiguration={
-                        'LocationConstraint': region_name
-                    }
-                )
                 print('')
                 print('Bucket selected: ' + bucket_name)
                 break
-            except Exception as error:
-                if str(error.response['Error']['Code']) == 'BucketAlreadyOwnedByYou':
-                    bucket_name = ans
-                    print('')
-                    print('Bucket selected: ' + bucket_name)
-                    #errorLoop = True
-                else:
-                    print(error)
-        else:
-            print('')
-            print('Invalid input')
+            else:
+                print(error)
+                break
     else:
-        break
-
-# create S3 bucket
-bucket = s3.create_bucket(
-    ACL='public-read',
-    Bucket=bucket_name,
-    CreateBucketConfiguration={
-        'LocationConstraint': region_name
-    }
-)
+        print('')
+        print('Invalid input')
 
 print('')
 print('Configuring server...')
