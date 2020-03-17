@@ -2,6 +2,7 @@
 import boto3
 import os
 import sys
+import datetime
 import subprocess
 import time
 ec2 = boto3.resource('ec2')
@@ -195,19 +196,69 @@ print('')
 # download the image to the local directory
 subprocess.run(['curl', '-O', 'http://devops.witdemo.net/image.jpg'])
 
-
-#status = ec2.instances.filter(
-#        Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
-
-
 status = ec2Client.describe_instance_status()
 #print(status)
 s3 = boto3.resource("s3")
-bucket_name = 'wit2020-devops-kchadwick-w05-2020-02-27-1582823115' #TODO create bucket dynamically
+now = datetime.datetime.now().strftime("%m%d%Y-%H%M%S")
+bucket_name = ''
 object_name = 'image.jpg'
 region_name = boto3.session.Session().region_name # save region name to variable
 public_ip = instance[0].public_ip_address
 key_path = './' + keyName + '.pem'
+
+errorLoop = False
+while True:
+    if errorLoop == False:
+        print('')
+        print('To deploy assets to the server, you must specify an S3 bucket.')
+        print('  1) create a new S3 bucket')
+        print('  2) enter the name of an existing S3 bucket')
+        ans = input('===> ')
+        if ans == '1':
+            bucket_name = 'wit2020-devops-kchadwick-assignment01-' + now # save bucket name string to variable
+            print('')
+            print('New bucket created: ' + bucket_name)
+            break
+        elif ans == '2':
+            try:
+                print('')
+                ans = input('Enter the bucket name: ')
+                bucket_name = ans
+                bucket = s3.create_bucket(
+                    ACL='public-read',
+                    Bucket=bucket_name,
+                    CreateBucketConfiguration={
+                        'LocationConstraint': region_name
+                    }
+                )
+                print('')
+                print('Bucket selected: ' + bucket_name)
+                break
+            except Exception as error:
+                if str(error.response['Error']['Code']) == 'BucketAlreadyOwnedByYou':
+                    bucket_name = ans
+                    print('')
+                    print('Bucket selected: ' + bucket_name)
+                    #errorLoop = True
+                else:
+                    print(error)
+        else:
+            print('')
+            print('Invalid input')
+    else:
+        break
+
+# create S3 bucket
+bucket = s3.create_bucket(
+    ACL='public-read',
+    Bucket=bucket_name,
+    CreateBucketConfiguration={
+        'LocationConstraint': region_name
+    }
+)
+
+print('')
+print('Configuring server...')
 
 try:
     # add ACL='public-read' to put arguments to allow public access to image
