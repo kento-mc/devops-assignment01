@@ -21,5 +21,7 @@ response = metric.get_statistics(StartTime = datetime.utcnow() - timedelta(minut
                                  Period=300,                                             # 5 min intervals
                                  Statistics=['Average'])
 
+print('')
 print ("Average CPU utilisation:", response['Datapoints'][0]['Average'], response['Datapoints'][0]['Unit'])
+print('')
 # print (response)   # for debugging only
