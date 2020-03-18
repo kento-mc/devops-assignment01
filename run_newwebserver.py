@@ -26,9 +26,9 @@ else:
     print(welcomeText)
     time.sleep(2)
     print('')
-    ans = input('''Do you already have a key pair to use for the new EC2 instance?
-    (If not, one will be generated for you)
-    (y/n): ''')
+    print('Do you already have a key pair to use for the new EC2 instance?')
+    print('(If not, one will be generated.)')
+    ans = input('(y/n): ')
     if ans[0] == 'y' or ans[0] == 'Y':
         print('')
         print('Great! First, make sure the your_key.pem file is in the current directory.')
@@ -58,7 +58,7 @@ else:
         outfile.write(KeyPairOut)
         keyName = 'assignment01-keypair'
 
-# Create new security group
+# function to create new security group
 def createSecGroup(nameSG):
     securityGroup = ec2Client.create_security_group(
         Description='Assignment 01 SG',
@@ -149,8 +149,6 @@ while True:
             break
     break
 
-ans = input('Another question: ') # this is just to stop the script before it spins up an instance, for testing
-
 # spin up new ec2 instance and configure web server
 instance = ec2.create_instances(
     ImageId=amiID,
@@ -193,11 +191,12 @@ instance[0].reload()
 print('New EC2 instance running: ' + instance[0].instance_id)
 print('')
 
+# enable monitoring
+instance[0].monitor()
+
 # download the image to the local directory
 subprocess.run(['curl', '-O', 'http://devops.witdemo.net/image.jpg'])
 
-status = ec2Client.describe_instance_status()
-#print(status)
 s3 = boto3.resource("s3")
 now = datetime.datetime.now().strftime("%m%d%Y-%H%M%S")
 bucket_name = ''
@@ -288,9 +287,7 @@ try:
     print('')
 
     waiter = ec2Client.get_waiter('instance_status_ok')
-    waiter.wait()
-    #time.sleep(120)
-    #print(status)
+    waiter.wait() # wait for completion of status checks
     command = sshCmd + " sudo cp index.html /var/www/html/"
     subprocess.run(command, shell=True)
 
